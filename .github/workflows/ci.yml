@@ -16,7 +16,7 @@ jobs:
     name: Rust
     runs-on: ubuntu-latest
     env:
-      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target
+      CARGO_TARGET_DIR: ${{ github.workspace }}/.cargo-target
 
     steps:
       - name: Checkout
