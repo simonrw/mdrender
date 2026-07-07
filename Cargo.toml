@@ -8,6 +8,10 @@ edition = "2021"
 description = "A pipe-friendly terminal Markdown renderer"
 license = "MIT"
 
+[[bin]]
+name = "mdr"
+path = "src/main.rs"
+
 [dependencies]
 anstyle = "1"
 anyhow = "1"

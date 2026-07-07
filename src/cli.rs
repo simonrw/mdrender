@@ -21,7 +21,7 @@ pub enum ColorMode {
 }
 
 #[derive(Debug, Parser)]
-#[command(name = "mdrender")]
+#[command(name = "mdr")]
 #[command(about = "Render Markdown for comfortable terminal reading")]
 pub struct Args {
     #[arg(value_name = "FILE")]

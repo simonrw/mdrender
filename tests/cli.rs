@@ -7,7 +7,7 @@ fn renders_file_when_forced() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     writeln!(file, "# Title\n\nA paragraph with wrapping words.").unwrap();
 
-    Command::cargo_bin("mdrender")
+    Command::cargo_bin("mdr")
         .unwrap()
         .args(["--render", "always", "--color", "never", "--width", "24"])
         .arg(file.path())
@@ -18,7 +18,7 @@ fn renders_file_when_forced() {
 
 #[test]
 fn renders_stdin_when_forced() {
-    Command::cargo_bin("mdrender")
+    Command::cargo_bin("mdr")
         .unwrap()
         .args(["--render", "always", "--color", "never", "--width", "24"])
         .write_stdin("hello world")
@@ -32,7 +32,7 @@ fn auto_mode_passes_raw_markdown_when_not_tty() {
     let mut file = tempfile::NamedTempFile::new().unwrap();
     write!(file, "**raw**").unwrap();
 
-    Command::cargo_bin("mdrender")
+    Command::cargo_bin("mdr")
         .unwrap()
         .arg(file.path())
         .assert()
@@ -42,7 +42,7 @@ fn auto_mode_passes_raw_markdown_when_not_tty() {
 
 #[test]
 fn missing_file_reports_error() {
-    Command::cargo_bin("mdrender")
+    Command::cargo_bin("mdr")
         .unwrap()
         .arg("missing.md")
         .assert()
@@ -52,7 +52,7 @@ fn missing_file_reports_error() {
 
 #[test]
 fn color_never_emits_no_ansi() {
-    Command::cargo_bin("mdrender")
+    Command::cargo_bin("mdr")
         .unwrap()
         .args(["--render", "always", "--color", "never"])
         .write_stdin("**bold**")
@@ -63,7 +63,7 @@ fn color_never_emits_no_ansi() {
 
 #[test]
 fn color_always_emits_ansi() {
-    Command::cargo_bin("mdrender")
+    Command::cargo_bin("mdr")
         .unwrap()
         .args(["--render", "always", "--color", "always"])
         .write_stdin("**bold**")
