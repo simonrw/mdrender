@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_TARGET_DIR: ${{ runner.temp }}/cargo-target
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive_ext: tar.gz
+            binary_name: mdr
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive_ext: tar.gz
+            binary_name: mdr
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive_ext: tar.gz
+            binary_name: mdr
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive_ext: zip
+            binary_name: mdr.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --locked --release --bin mdr --target ${{ matrix.target }}
+
+      - name: Package Unix archive
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="mdr-${GITHUB_REF_NAME}-${{ matrix.target }}.tar.gz"
+          staging="dist/mdr-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir -p "$staging"
+          cp "$CARGO_TARGET_DIR/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$staging/"
+          tar -czf "dist/$archive" -C "$staging" "${{ matrix.binary_name }}"
+          test -s "dist/$archive"
+
+      - name: Package Windows archive
+        if: matrix.archive_ext == 'zip'
+        shell: pwsh
+        run: |
+          $Archive = "mdr-${env:GITHUB_REF_NAME}-${{ matrix.target }}.zip"
+          $Staging = "dist/mdr-${env:GITHUB_REF_NAME}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Force -Path $Staging | Out-Null
+          Copy-Item "$env:CARGO_TARGET_DIR/${{ matrix.target }}/release/${{ matrix.binary_name }}" "$Staging/"
+          Compress-Archive -Path "$Staging/${{ matrix.binary_name }}" -DestinationPath "dist/$Archive" -Force
+          if ((Get-Item "dist/$Archive").Length -le 0) {
+            throw "Release archive is empty: dist/$Archive"
+          }
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdr-${{ github.ref_name }}-${{ matrix.target }}
+          path: dist/mdr-${{ github.ref_name }}-${{ matrix.target }}.${{ matrix.archive_ext }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Verify expected archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            "mdr-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu.tar.gz"
+            "mdr-${GITHUB_REF_NAME}-x86_64-apple-darwin.tar.gz"
+            "mdr-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz"
+            "mdr-${GITHUB_REF_NAME}-x86_64-pc-windows-msvc.zip"
+          )
+          for archive in "${expected[@]}"; do
+            test -s "dist/$archive"
+          done
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum mdr-* > SHA256SUMS
+          test -s SHA256SUMS
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          files: |
+            dist/mdr-${{ github.ref_name }}-x86_64-unknown-linux-gnu.tar.gz
+            dist/mdr-${{ github.ref_name }}-x86_64-apple-darwin.tar.gz
+            dist/mdr-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz
+            dist/mdr-${{ github.ref_name }}-x86_64-pc-windows-msvc.zip
+            dist/SHA256SUMS
